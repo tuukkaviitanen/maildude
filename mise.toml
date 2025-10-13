@@ -1,2 +1,12 @@
 [tools]
 rust = "1.90.0"
+# mise automatically uses binstall to install ready made binaries instead of compiling the packages
+cargo-binstall = "1.15.6"
+
+# Cargo CLI tools
+"cargo:bacon" = "3.19.0"
+
+[tasks]
+default = "cargo run"
+build = "cargo build"
+dev = "bacon --headless --watch ./src/ run-long"
