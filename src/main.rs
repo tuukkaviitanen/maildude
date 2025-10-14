@@ -36,24 +36,43 @@ impl std::fmt::Display for Verb {
 enum Message {
     UrlFieldChanged(String),
     ResponseContentChanged(text_editor::Action),
-    ButtonPressed,
+    SendRequest,
+    RequestCompleted(Result<String, std::sync::Arc<reqwest::Error>>),
     VerbSelected(Verb),
 }
 
-fn update(state: &mut AppState, message: Message) {
+fn update(state: &mut AppState, message: Message) -> iced::Task<Message>{
     match message {
         Message::UrlFieldChanged(new_value) => {
             state.url_content = new_value;
+            iced::Task::none()
         }
         Message::ResponseContentChanged(action) => {
             state.editor_content.perform(action);
+            iced::Task::none()
         }
-        Message::ButtonPressed => {
-            let verb_and_url = format!("{} {}", state.selected_verb, state.url_content);
-            state.editor_content = text_editor::Content::with_text(&verb_and_url);
+        Message::SendRequest => iced::Task::perform(
+            {
+                let url = state.url_content.clone();
+                async move {
+                    fetch_url(&url)
+                        .await
+                        .map_err(|e| std::sync::Arc::new(e))
+                }
+            },
+            Message::RequestCompleted,
+        ),
+        Message::RequestCompleted(Ok(response_body)) => {
+            state.editor_content = text_editor::Content::with_text(&response_body);
+            iced::Task::none()
+        }
+        Message::RequestCompleted(Err(error)) => {
+            state.editor_content = text_editor::Content::with_text(&format!("Error: {}", error));
+            iced::Task::none()
         }
         Message::VerbSelected(verb) => {
             state.selected_verb = verb;
+            iced::Task::none()
         }
     }
 }
@@ -78,7 +97,7 @@ fn view(state: &'_ AppState) -> iced::Element<'_, Message> {
                     .width(Fill),
                 button(text("Run").center())
                     .width(100)
-                    .on_press(Message::ButtonPressed)
+                    .on_press(Message::SendRequest)
             ]
             .spacing(10),
             text_editor(&state.editor_content)
@@ -95,4 +114,10 @@ pub fn main() -> iced::Result {
     iced::application("maildude", update, view)
         .theme(|_| iced::Theme::KanagawaDragon)
         .run()
+}
+
+async fn fetch_url(_url: &str) -> Result<String, reqwest::Error> {
+    let response = reqwest::get(_url).await?;
+    let body = response.text().await?;
+    Ok(body)
 }
