@@ -84,7 +84,7 @@ fn view(state: &'_ AppState) -> iced::Element<'_, Message> {
                     Some(&state.selected_method),
                     Message::MethodSelected
                 )
-                .width(100),
+                .width(115),
                 text_input("URL", &state.url_content)
                     .on_input(Message::UrlFieldChanged)
                     .width(Fill),
@@ -93,9 +93,11 @@ fn view(state: &'_ AppState) -> iced::Element<'_, Message> {
                     .on_press(Message::SendRequest)
             ]
             .spacing(10),
+            text("Request body"),
             text_editor(&state.editor_content)
                 .on_action(Message::ResponseContentChanged)
                 .height(Fill),
+            text("Response"),
             text_editor(&state.response_content).height(Fill)
         ]
         .spacing(10),
