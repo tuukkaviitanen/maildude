@@ -51,17 +51,18 @@ fn update(state: &mut AppState, message: Message) -> iced::Task<Message>{
             state.editor_content.perform(action);
             iced::Task::none()
         }
-        Message::SendRequest => iced::Task::perform(
-            {
-                let url = state.url_content.clone();
+        Message::SendRequest => {
+            let url = state.url_content.clone();
+            let verb = state.selected_verb.clone();
+            iced::Task::perform(
                 async move {
-                    fetch_url(&url)
+                    fetch_url(url, verb)
                         .await
                         .map_err(|e| std::sync::Arc::new(e))
-                }
-            },
-            Message::RequestCompleted,
-        ),
+                },
+                Message::RequestCompleted,
+            )
+        },
         Message::RequestCompleted(Ok(response_body)) => {
             state.editor_content = text_editor::Content::with_text(&response_body);
             iced::Task::none()
@@ -116,8 +117,16 @@ pub fn main() -> iced::Result {
         .run()
 }
 
-async fn fetch_url(_url: &str) -> Result<String, reqwest::Error> {
-    let response = reqwest::get(_url).await?;
+async fn fetch_url(_url: String, _verb: Verb) -> Result<String, reqwest::Error> {
+    let client = reqwest::Client::new();
+    let request = match _verb {
+        Verb::Get => client.get(_url),
+        Verb::Post => client.post(_url),
+        Verb::Patch => client.patch(_url),
+        Verb::Put => client.put(_url),
+        Verb::Delete => client.delete(_url),
+    };
+    let response = request.send().await?;
     let body = response.text().await?;
     Ok(body)
 }
