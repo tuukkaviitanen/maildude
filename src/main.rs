@@ -1,18 +1,16 @@
 use iced::{
     Length::Fill,
-    widget::{button, column, container, row, text, text_editor, text_input, combo_box},
+    widget::{button, column, container, row, text, text_editor, text_input, pick_list},
 };
 
 #[derive(Default)]
 struct AppState {
     url_content: String,
     editor_content: text_editor::Content,
-    editor_disabled: bool,
-    verbs: combo_box::State<Verb>,
     selected_verb: Verb,
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 enum Verb {
     #[default]
     Get,
@@ -61,10 +59,19 @@ fn update(state: &mut AppState, message: Message) {
 }
 
 fn view(state: &'_ AppState) -> iced::Element<'_, Message> {
+    let verbs = [
+        Verb::Get,
+        Verb::Post,
+        Verb::Patch,
+        Verb::Put,
+        Verb::Delete,
+    ];
+
+
     container(
         column![
             row![
-                combo_box(&state.verbs, "VERB", Some(&state.selected_verb), Message::VerbSelected)
+                pick_list(verbs, Some(&state.selected_verb), Message::VerbSelected)
                     .width(100),
                 text_input("URL", &state.url_content)
                     .on_input(Message::UrlFieldChanged)
