@@ -53,7 +53,7 @@ fn update(state: &mut AppState, message: Message) -> iced::Task<Message> {
             iced::Task::none()
         }
         Message::RequestCompleted(Err(error)) => {
-            state.editor_content = text_editor::Content::with_text(&format!("Error: {}", error));
+            state.response_content = text_editor::Content::with_text(&format!("Error: {}", error));
             iced::Task::none()
         }
         Message::MethodSelected(method) => {
