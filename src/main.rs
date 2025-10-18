@@ -1,7 +1,7 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use iced::{
-    widget::{button, column, container::{self, Style}, horizontal_space, pick_list, rich_text, row, scrollable, text, text_editor, text_input}, Border, Length::Fill
+    widget::{button, column, container::{self, Style}, horizontal_space, pick_list, row, scrollable, text, text_editor, text_input}, Alignment::Center, Border, Length::Fill
 };
 use reqwest::Method;
 use tokio::time::Instant;
@@ -10,7 +10,7 @@ use tokio::time::Instant;
 struct App {
     url_content: String,
     editor_content: text_editor::Content,
-    response_data: Option<ResponseData>,
+    response: ResponseStatus,
     selected_method: Method,
 }
 
@@ -20,6 +20,14 @@ struct ResponseData {
     status: reqwest::StatusCode,
     headers: reqwest::header::HeaderMap,
     request_duration: Duration,
+}
+
+#[derive(Debug, Clone, Default)]
+enum ResponseStatus {
+    Success(ResponseData),
+    Error(Arc<reqwest::Error>),
+    #[default]
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -60,11 +68,11 @@ impl App {
                 )
             }
             Message::RequestCompleted(Ok(response_data)) => {
-                self.response_data = Some(response_data);
+                self.response = ResponseStatus::Success(response_data);
                 iced::Task::none()
             }
             Message::RequestCompleted(Err(error)) => {
-                self.response_data = None;
+                self.response = ResponseStatus::Error(error);
                 iced::Task::none()
             }
             Message::MethodSelected(method) => {
@@ -98,7 +106,8 @@ impl App {
                     .width(115),
                     text_input("URL", &self.url_content)
                         .on_input(Message::UrlFieldChanged)
-                        .width(Fill).on_submit(Message::SendRequest),
+                        .width(Fill)
+                        .on_submit(Message::SendRequest),
                     button(text("Run").center())
                         .width(100)
                         .on_press(Message::SendRequest)
@@ -108,26 +117,41 @@ impl App {
                 text_editor(&self.editor_content)
                     .on_action(Message::ResponseContentChanged)
                     .height(Fill),
-                row![text("Response"), 
-                    self.response_data
-                        .as_ref()
-                        .map(|data| row!(
-                            horizontal_space(),
-                            text(format!("{}", data.status)),
-                            horizontal_space(),
-                            text(format!(
-                                "{:.2?}",
-                                data.request_duration
-                            )),
-                        ))
-                        .unwrap_or(row![])
-                ],
-                container::Container::new(scrollable(text(
-                    self.response_data
-                        .as_ref()
-                        .map(|data| data.body.as_str())
-                        .unwrap_or_default()
-                ).width(Fill)))
+                {
+                    let response_row = match &self.response {
+                        ResponseStatus::Success(data) => {
+                            row![
+                                horizontal_space(),
+                                text(format!("{}", data.status)),
+                                horizontal_space(),
+                                text(format!("{:.2?}", data.request_duration)),
+                            ]
+                        }
+                        ResponseStatus::Error(err) => {
+                            row![
+                                text(format!("Error: {}", err)).align_x(Center)
+                            .width(Fill)
+                            ]
+                            
+                        }
+                        ResponseStatus::None => row![],
+                    };
+                    row![
+                        text("Response"),
+                        response_row
+                    ]
+                },
+                container::Container::new(
+                    scrollable(
+                        text(
+                            match &self.response {
+                                ResponseStatus::Success(data) => &data.body,
+                                _ => "",
+                            }
+                        )
+                        .width(Fill)
+                    )
+                )
                 .style(|_| Style {
                     border: Border {
                         width: 1.,
@@ -140,7 +164,7 @@ impl App {
                 .height(Fill)
                 .width(Fill)
             ]
-            .spacing(10),
+            .spacing(10)
         )
         .padding(10)
         .into()
