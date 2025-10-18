@@ -2,12 +2,11 @@ use std::{sync::Arc, time::Duration};
 
 use iced::{
     Alignment::Center,
-    Border,
     Length::Fill,
     widget::{
         button, column,
-        container::{self, Style},
-        horizontal_space, pick_list, row, scrollable, text, text_editor, text_input,
+        container::{self},
+        horizontal_space, pick_list, row, text, text_editor, text_input,
     },
 };
 use reqwest::Method;
@@ -19,6 +18,7 @@ struct App {
     editor_content: text_editor::Content,
     response: ResponseStatus,
     selected_method: Method,
+    response_content: text_editor::Content,
 }
 
 #[derive(Debug, Clone)]
@@ -40,10 +40,11 @@ enum ResponseStatus {
 #[derive(Debug, Clone)]
 enum Message {
     UrlFieldChanged(String),
-    ResponseContentChanged(text_editor::Action),
+    EditorContentChanged(text_editor::Action),
     SendRequest,
     RequestCompleted(Result<ResponseData, std::sync::Arc<reqwest::Error>>),
     MethodSelected(Method),
+    ResponseContentChanged(text_editor::Action),
 }
 
 impl App {
@@ -53,7 +54,7 @@ impl App {
                 self.url_content = new_value;
                 iced::Task::none()
             }
-            Message::ResponseContentChanged(action) => {
+            Message::EditorContentChanged(action) => {
                 self.editor_content.perform(action);
                 iced::Task::none()
             }
@@ -75,15 +76,26 @@ impl App {
                 )
             }
             Message::RequestCompleted(Ok(response_data)) => {
+                let body = response_data.body.clone();
                 self.response = ResponseStatus::Success(response_data);
+                self.response_content = text_editor::Content::with_text(&body);
                 iced::Task::none()
             }
             Message::RequestCompleted(Err(error)) => {
                 self.response = ResponseStatus::Error(error);
+                self.response_content = text_editor::Content::default();
                 iced::Task::none()
             }
             Message::MethodSelected(method) => {
                 self.selected_method = method;
+                iced::Task::none()
+            }
+            Message::ResponseContentChanged(action) => {
+                // Only allow non-editing actions on the response content
+                if !matches!(action, text_editor::Action::Edit { .. }) {
+                    self.response_content.perform(action);
+                }
+
                 iced::Task::none()
             }
         }
@@ -122,7 +134,7 @@ impl App {
                 .spacing(10),
                 text("Request body"),
                 text_editor(&self.editor_content)
-                    .on_action(Message::ResponseContentChanged)
+                    .on_action(Message::EditorContentChanged)
                     .height(Fill),
                 {
                     let response_row = match &self.response {
@@ -141,24 +153,9 @@ impl App {
                     };
                     row![text("Response"), response_row]
                 },
-                container::Container::new(scrollable(
-                    text(match &self.response {
-                        ResponseStatus::Success(data) => &data.body,
-                        _ => "",
-                    })
-                    .width(Fill)
-                ))
-                .style(|_| Style {
-                    border: Border {
-                        width: 1.,
-                        color: iced::Color::from_rgb8(100, 100, 100),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .padding(10)
-                .height(Fill)
-                .width(Fill)
+                text_editor(&self.response_content)
+                    .height(Fill)
+                    .on_action(Message::ResponseContentChanged),
             ]
             .spacing(10),
         )
