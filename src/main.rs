@@ -1,7 +1,14 @@
 use std::{sync::Arc, time::Duration};
 
 use iced::{
-    widget::{button, column, container::{self, Style}, horizontal_space, pick_list, row, scrollable, text, text_editor, text_input}, Alignment::Center, Border, Length::Fill
+    Alignment::Center,
+    Border,
+    Length::Fill,
+    widget::{
+        button, column,
+        container::{self, Style},
+        horizontal_space, pick_list, row, scrollable, text, text_editor, text_input,
+    },
 };
 use reqwest::Method;
 use tokio::time::Instant;
@@ -62,7 +69,7 @@ impl App {
                     async move {
                         send_request(url, method, request_body)
                             .await
-                            .map_err(|e| std::sync::Arc::new(e))
+                            .map_err(Arc::new)
                     },
                     Message::RequestCompleted,
                 )
@@ -128,30 +135,19 @@ impl App {
                             ]
                         }
                         ResponseStatus::Error(err) => {
-                            row![
-                                text(format!("Error: {}", err)).align_x(Center)
-                            .width(Fill)
-                            ]
-                            
+                            row![text(format!("Error: {}", err)).align_x(Center).width(Fill)]
                         }
                         ResponseStatus::None => row![],
                     };
-                    row![
-                        text("Response"),
-                        response_row
-                    ]
+                    row![text("Response"), response_row]
                 },
-                container::Container::new(
-                    scrollable(
-                        text(
-                            match &self.response {
-                                ResponseStatus::Success(data) => &data.body,
-                                _ => "",
-                            }
-                        )
-                        .width(Fill)
-                    )
-                )
+                container::Container::new(scrollable(
+                    text(match &self.response {
+                        ResponseStatus::Success(data) => &data.body,
+                        _ => "",
+                    })
+                    .width(Fill)
+                ))
                 .style(|_| Style {
                     border: Border {
                         width: 1.,
@@ -164,7 +160,7 @@ impl App {
                 .height(Fill)
                 .width(Fill)
             ]
-            .spacing(10)
+            .spacing(10),
         )
         .padding(10)
         .into()
